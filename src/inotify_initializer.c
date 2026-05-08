@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 void initialize_inotify(int *fd, int *wd, char *downloads_path){
- *fd = inotify_init1(IN_NONBLOCK);
+ *fd = inotify_init();
 
     if (*fd < 0) {
         perror("inotify_init");

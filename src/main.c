@@ -33,7 +33,6 @@ int main() {
 
     }
 
-
     if (get_downloads_dir(downloads_path,sizeof(downloads_path)) != 0){
         return 1;
     }
@@ -50,12 +49,11 @@ int main() {
         int length = read(fd, buffer, BUF_LEN);
 
         if (length < 0){
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            usleep(100000);
+            if (errno == EINTR)
             continue;
-        }
-    perror("read");
-    break;
+
+        perror("read");
+        break;
     }
 
         int i = 0;
@@ -65,13 +63,14 @@ int main() {
             struct inotify_event *event = (struct inotify_event *)&buffer[i];
 
             if (handle_event(event, magic, downloads_path, home_path) != 0){
-                break;
+                goto cleanup;
             }
 
             i += EVENT_SIZE + event->len;
         }
     }
 
+cleanup:
     inotify_rm_watch(fd, wd);
     close(fd);
     magic_close(magic);
