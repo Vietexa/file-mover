@@ -1,9 +1,11 @@
 #include "include/event_handler.h"
 
 #include <limits.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/inotify.h>
+#include <unistd.h>
 
 enum FileType{
     FILE_UNKNOWN,
@@ -23,7 +25,67 @@ static int is_temporary_file(const char *filename) {
         !strcmp(extension, ".temp");
 }
 
-int handle_event(struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home){
+static void move_file_to_dir(const struct inotify_event *event, const char* home, const char *file_directory, const char *fullpath){
+
+char move_to_path[PATH_MAX];
+char candidate_name[NAME_MAX];
+
+const char *dot = strrchr(event->name, '.');
+
+if (dot && dot != event->name) {
+    
+    size_t base_len = dot - event->name;
+    char base[NAME_MAX];
+    char ext[NAME_MAX];
+
+    snprintf(base, sizeof(base), "%.*s", (int)base_len, event->name);
+    snprintf(ext, sizeof(ext), "%s", dot);
+
+    int counter = 0;
+
+    do {
+        if (counter == 0) {
+            snprintf(candidate_name, sizeof(candidate_name),
+                     "%s%s", base, ext);
+        } else {
+            snprintf(candidate_name, sizeof(candidate_name),
+                     "%s(%d)%s", base, counter, ext);
+        }
+
+        snprintf(move_to_path, sizeof(move_to_path),
+                 "%s/%s/%s", home, file_directory, candidate_name);
+
+        counter++;
+    } while (access(move_to_path, F_OK) == 0);
+
+} else {
+    int counter = 0;
+
+    do {
+        if (counter == 0) {
+            snprintf(candidate_name, sizeof(candidate_name),
+                     "%s", event->name);
+        } else {
+            snprintf(candidate_name, sizeof(candidate_name),
+                     "%s(%d)", event->name, counter);
+        }
+
+        snprintf(move_to_path, sizeof(move_to_path),
+                 "%s/%s/%s", home, file_directory, candidate_name);
+
+        counter++;
+    } while (access(move_to_path, F_OK) == 0);
+}
+
+if (rename(fullpath, move_to_path) != 0) {
+    perror("rename");
+}
+
+
+
+}
+
+int handle_event(const struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home){
 
     if (!event->len) return 0;
 
@@ -50,6 +112,7 @@ int handle_event(struct inotify_event *event, magic_t magic, const char *downloa
     printf("MIME type: %s\n", mime);
 
     enum FileType file_type = FILE_UNKNOWN;
+
                 
     if (strncmp(mime, "image/", 6) == 0) {
         file_type = FILE_IMAGE; 
@@ -67,7 +130,8 @@ int handle_event(struct inotify_event *event, magic_t magic, const char *downloa
         file_type = FILE_PDF;
     }
 
-    char move_to_path[PATH_MAX];
+
+    char *file_directory = NULL;
 
     switch (file_type){
                 
@@ -75,30 +139,27 @@ int handle_event(struct inotify_event *event, magic_t magic, const char *downloa
     return 0;
 
     case FILE_AUDIO:
-    snprintf(move_to_path, sizeof(move_to_path), "%s/Music/%s", home, event->name);
+    file_directory = "Music";
     break;
 
     case FILE_IMAGE:
-    snprintf(move_to_path, sizeof(move_to_path), "%s/Pictures/%s", home, event->name);
+    file_directory = "Pictures";
     break;
 
     case FILE_PDF:
-    snprintf(move_to_path, sizeof(move_to_path), "%s/Documents/%s", home, event->name);
+    file_directory = "Documents";
     break;
 
     case FILE_VIDEO:
-    snprintf(move_to_path, sizeof(move_to_path), "%s/Videos/%s", home, event->name);
+    file_directory = "Videos";
     break;
 
     default: return 0;
 
     }
-                        
-    if (rename(fullpath, move_to_path) != 0){
-        perror("rename");
-        return 1;
-    }
+
+    move_file_to_dir(event, home, file_directory, fullpath);
 
 
-return 0;
+    return 0;
 }

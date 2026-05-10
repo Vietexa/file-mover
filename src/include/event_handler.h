@@ -4,6 +4,6 @@
 #include <magic.h>
 #include <sys/inotify.h>
 
-int handle_event(struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home);
+int handle_event(const struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home);
 
 #endif //EVENT_HANDLER_H
