@@ -85,7 +85,7 @@ if (rename(fullpath, move_to_path) != 0) {
 
 }
 
-int handle_event(const struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home){
+int handle_event(const struct inotify_event *event, magic_t magic, const char *downloads_path, const char *home, Directories *directories){
 
     if (!event->len) return 0;
 
@@ -115,18 +115,22 @@ int handle_event(const struct inotify_event *event, magic_t magic, const char *d
 
                 
     if (strncmp(mime, "image/", 6) == 0) {
+        if (strcmp(directories->pictures_dir,"") == 0) {return 0;}
         file_type = FILE_IMAGE; 
     }  
 
     else if (strncmp(mime, "video/", 6) == 0) {
+        if (strcmp(directories->videos_dir,"") == 0) {return 0;}
         file_type = FILE_VIDEO; 
     }
 
     else if (strncmp(mime, "audio/", 6) == 0) {
+        if (strcmp(directories->audio_dir,"") == 0) {return 0;}
         file_type = FILE_AUDIO;
     }
 
     else if (strcmp(mime, "application/pdf") == 0) {
+        if (strcmp(directories->documents_dir,"") == 0) {return 0;}
         file_type = FILE_PDF;
     }
 
@@ -139,19 +143,19 @@ int handle_event(const struct inotify_event *event, magic_t magic, const char *d
     return 0;
 
     case FILE_AUDIO:
-    file_directory = "Music";
+    file_directory = directories->audio_dir;
     break;
 
     case FILE_IMAGE:
-    file_directory = "Pictures";
+    file_directory = directories->pictures_dir;
     break;
 
     case FILE_PDF:
-    file_directory = "Documents";
+    file_directory = directories->documents_dir;
     break;
 
     case FILE_VIDEO:
-    file_directory = "Videos";
+    file_directory = directories->videos_dir;
     break;
 
     default: return 0;
